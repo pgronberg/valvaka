@@ -219,6 +219,23 @@
   }
   const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || "") ? c : "var(--other)");
 
+  // Tries each path until one returns JSON, then remembers it. Hosts without URL rewriting
+  // (e.g. nginx + PHP) can't serve api/results, but can still reach api.php directly.
+  const workingPath = new Map();
+  async function getJson(paths) {
+    const ordered = workingPath.has(paths[0]) ? [workingPath.get(paths[0]), ...paths] : paths;
+    for (const path of ordered) {
+      try {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) continue;
+        const data = await res.json();
+        workingPath.set(paths[0], path);
+        return data;
+      } catch {}
+    }
+    throw new Error(`No JSON from ${paths.join(" or ")}`);
+  }
+
   // ---------- Current result ----------
 
   const cols = {};
@@ -319,9 +336,7 @@
 
   async function loadHistory(latest) {
     try {
-      const res = await fetch("api/history", { cache: "no-store" });
-      if (!res.ok) throw new Error(res.status);
-      updates = await res.json();
+      updates = await getJson(["api/history", "api.php?history=1"]);
     } catch {
       // Static hosts (Netlify/Vercel) have no history endpoint, so keep this browser's own record
       updates = browserHistory(latest);
@@ -537,9 +552,7 @@
   async function refresh() {
     try {
       // Relative so the dashboard also works from a subfolder; the host proxies this to val.se
-      const res = await fetch("api/results", { cache: "no-store" });
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
+      const data = await getJson(["api/results", "api.php"]);
       render(data);
       await loadHistory(data);
       renderTrend();

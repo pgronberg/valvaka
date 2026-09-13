@@ -6,6 +6,8 @@
 [![Ingen spårning](https://img.shields.io/badge/sp%C3%A5rning-ingen-brightgreen.svg)](#förtroende-och-transparens)
 [![Beroenden: 0](https://img.shields.io/badge/beroenden-0-brightgreen.svg)](#kom-igång)
 
+**Live: [valvaka.celestiocloud.site](https://valvaka.celestiocloud.site)**
+
 En enkel live-dashboard för valnatten: hur stora **Tidöpartierna** (M, SD, KD, L) och **oppositionen** (S, V, MP, C) är just nu, varje partis andel, och hur siffrorna förändras under kvällen. Siffrorna hämtas direkt från Valmyndighetens resultatsida och uppdateras varje minut.
 
 *A small live dashboard for Sweden's 2026 general election night, showing bloc and party vote shares straight from the Election Authority's published results. Unofficial, open source, no tracking.*
@@ -50,7 +52,7 @@ Valmyndighetens filer skickar inga CORS-huvuden, så en webbläsare på en annan
 |---|---|---|
 | Container eller VPS med Python | `server.py`, `index.html` | På servern, gemensam för alla besökare |
 | Docker | `Dockerfile` | På servern. Montera en volym på `/data` för att behålla den vid omstart. |
-| PHP/Apache | `index.html`, `api.php`, `.htaccess` | På servern, men registreras bara när någon har sidan öppen |
+| PHP (Apache eller nginx) | `index.html`, `api.php`, `.htaccess` | På servern, men registreras bara när någon har sidan öppen. Utan URL-omskrivning, till exempel på nginx, anropar sidan `api.php` direkt. |
 | Netlify | `index.html`, `_redirects` | Bara i besökarens webbläsare |
 | Vercel | `index.html`, `vercel.json` | Bara i besökarens webbläsare |
 
