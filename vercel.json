@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/results", "destination": "https://resultat.val.se/data/resultat/val2026/RD_P.json" }
+  ]
+}

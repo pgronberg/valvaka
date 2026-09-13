@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valvaka 2026</title>
+<meta name="description" content="Inofficiell live-sammanställning av riksdagsvalet 2026 med data direkt från Valmyndigheten.">
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fff; --ink: #16181d; --muted: #6b6f76; --line: #e4e2dc; --track: #ecebe6;
+    --left: #d4343a; --right: #2f6db5; --up: #1f8a4c; --down: #c0392b; --other: #a3a3a3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111317; --card: #1a1d22; --ink: #eceae4; --muted: #9a9ea6; --line: #2a2e35; --track: #262a31;
+      --left: #ec5a5f; --right: #5b94d8; --up: #4cc07f; --down: #ef6b5e; --other: #6f737a;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; }
+  main { max-width: 1040px; margin: 0 auto; padding: 28px 20px 40px; }
+  a { color: inherit; }
+
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  h1 small { font-weight: 400; color: var(--muted); font-size: 14px; margin-left: 6px; }
+  .status { color: var(--muted); font-size: 13px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--up); margin-right: 6px; vertical-align: 1px; }
+  .dot.stale { background: var(--down); }
+  .progress { height: 4px; background: var(--track); border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
+  .progress > div { height: 100%; width: 0; background: var(--ink); opacity: .5; transition: width .6s; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .blocs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .bloc.right { text-align: right; }
+  .bloc h2 { margin: 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  .bloc.left h2 { color: var(--left); } .bloc.right h2 { color: var(--right); }
+  .members { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .big { font-size: 64px; white-space: nowrap; font-weight: 700; letter-spacing: -.03em; line-height: 1.05; margin-top: 10px; font-variant-numeric: proportional-nums; }
+  .delta { font-size: 14px; color: var(--muted); }
+  .up { color: var(--up); } .down { color: var(--down); }
+  .lead { display: inline-block; white-space: nowrap; margin-top: 10px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--track); visibility: hidden; }
+
+  .split { position: relative; display: flex; height: 14px; border-radius: 7px; background: var(--track); margin: 16px 0 6px; }
+  .split > div { transition: width .6s; }
+  .split .l { background: var(--left); border-radius: 7px 0 0 7px; }
+  .split .gap { flex: 1; }
+  .split .r { background: var(--right); border-radius: 0 7px 7px 0; }
+  .split .mid { position: absolute; left: 50%; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .55; }
+  .splitlabels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+  .parties { margin-top: 16px; }
+  .cols { display: grid; grid-template-columns: repeat(4, 1fr) 14px repeat(4, 1fr) 14px .9fr; gap: 10px; }
+  .chart { position: relative; height: 240px; margin-top: 8px; }
+  .col { position: relative; height: 100%; }
+  .bar { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 64px; height: 0; min-height: 2px; border-radius: 6px 6px 0 0; transition: height .6s; }
+  .val { position: absolute; left: 0; right: 0; text-align: center; font-weight: 650; bottom: 4px; transition: bottom .6s; }
+  .val { z-index: 1; white-space: nowrap; }
+  .val small { font-size: inherit; }
+  .val span { background: var(--card); padding: 0 4px; border-radius: 4px; }
+  .chart-legend { display: flex; justify-content: flex-end; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .chart-legend i { width: 18px; border-top: 1px dashed var(--muted); }
+  .threshold { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); opacity: .7; pointer-events: none; transition: bottom .6s; }
+  .names { border-top: 1px solid var(--line); padding-top: 8px; text-align: center; }
+  .names b { display: block; font-size: 14px; }
+  .names span { font-size: 12px; color: var(--muted); }
+  .groups { margin-top: 10px; font-size: 12px; font-weight: 600; text-align: center; }
+  .groups div { padding-top: 5px; border-top: 3px solid; }
+  .groups .gl { grid-column: 1 / 5; border-color: var(--left); color: var(--left); }
+  .groups .gr { grid-column: 6 / 10; border-color: var(--right); color: var(--right); }
+
+  .trend { margin-top: 16px; }
+  .trend-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .trend h3 { margin: 0; font-size: 15px; font-weight: 650; }
+  .trend .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .seg { display: inline-flex; background: var(--track); border-radius: 8px; padding: 2px; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .1); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 6px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i, .tip i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  .trend-plot { position: relative; height: 280px; }
+  .trend-plot svg { display: block; width: 100%; height: 100%; overflow: visible; outline: none; touch-action: pan-y; }
+  .trend-plot svg:focus-visible { outline: 2px solid var(--muted); outline-offset: 4px; border-radius: 4px; }
+  .grid line { stroke: var(--line); stroke-width: 1; }
+  .axis text { fill: var(--muted); font-size: 11px; }
+  .endlabel { fill: var(--ink); font-size: 12px; font-weight: 600; }
+  .cross { stroke: var(--muted); stroke-width: 1; }
+  .tip { position: absolute; top: 0; pointer-events: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgb(0 0 0 / .14); white-space: nowrap; z-index: 2; }
+  .tip .when { color: var(--muted); margin-bottom: 4px; }
+  .tip .row { display: flex; align-items: center; gap: 8px; line-height: 1.6; }
+  .tip .row b { min-width: 46px; text-align: right; }
+  .tip .row span { color: var(--muted); flex: 1; }
+  .tip .row em { font-style: normal; color: var(--muted); margin-left: 8px; }
+  .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; text-align: center; padding: 0 20px; pointer-events: none; }
+  .table-view { margin-top: 10px; font-size: 13px; }
+  .table-view summary { cursor: pointer; color: var(--muted); }
+  .table-scroll { overflow: auto; max-height: 320px; margin-top: 8px; }
+  .table-view table { border-collapse: collapse; width: 100%; }
+  .table-view th, .table-view td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .table-view th { position: sticky; top: 0; background: var(--card); font-weight: 600; }
+  .table-view th:first-child, .table-view td:first-child { text-align: left; }
+
+  footer { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  footer p { margin: 0 0 4px; }
+  .error { color: var(--down); }
+
+  @media (max-width: 640px) {
+    main { padding: 20px 14px 32px; }
+    .blocs { gap: 10px; }
+    .card { padding: 14px; }
+    .big { font-size: 34px; }
+    .bloc h2 { font-size: 11px; }
+    .members, .delta { font-size: 12px; }
+    .lead { font-size: 11px; }
+    .cols { gap: 4px; grid-template-columns: repeat(4, 1fr) 6px repeat(4, 1fr) 6px .9fr; }
+    .chart { height: 190px; }
+    .val { font-size: 11px; }
+    .val small { display: none; }
+    .names b { font-size: 12px; }
+    .names span { font-size: 10px; }
+    .trend-plot { height: 220px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Riksdagsvalet 2026 <small>Preliminärt resultat</small></h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Hämtar…</span></div>
+  </header>
+  <div class="progress"><div id="progress"></div></div>
+
+  <section class="blocs">
+    <div class="card bloc left">
+      <h2>Oppositionen</h2>
+      <div class="members">S · V · MP · C</div>
+      <div class="big" id="leftPct">–</div>
+      <div class="delta" id="leftDelta">&nbsp;</div>
+      <div class="lead" id="leftLead">Leder</div>
+    </div>
+    <div class="card bloc right">
+      <h2>Tidöpartierna</h2>
+      <div class="members">M · SD · KD · L</div>
+      <div class="big" id="rightPct">–</div>
+      <div class="delta" id="rightDelta">&nbsp;</div>
+      <div class="lead" id="rightLead">Leder</div>
+    </div>
+  </section>
+
+  <div class="split" aria-hidden="true">
+    <div class="l" id="splitL"></div><div class="gap"></div><div class="r" id="splitR"></div>
+    <div class="mid"></div>
+  </div>
+  <div class="splitlabels"><span>Oppositionen</span><span>50 %</span><span>Tidöpartierna</span></div>
+
+  <section class="card parties">
+    <div class="chart-legend"><i></i>4 %-spärren</div>
+    <div class="chart">
+      <div class="cols" id="chart" style="height:100%"></div>
+      <div class="threshold" id="threshold"></div>
+    </div>
+    <div class="cols names" id="names"></div>
+    <div class="cols groups"><div class="gl">Oppositionen</div><div class="gr">Tidöpartierna</div></div>
+  </section>
+
+  <section class="card trend">
+    <div class="trend-head">
+      <div>
+        <h3>Utveckling under kvällen</h3>
+        <div class="sub">Andel av rösterna vid varje uppdatering från Valmyndigheten</div>
+      </div>
+      <div class="seg" role="group" aria-label="Visa i grafen">
+        <button type="button" data-mode="blocs" aria-pressed="true">Block</button>
+        <button type="button" data-mode="parties" aria-pressed="false">Partier</button>
+      </div>
+    </div>
+    <div class="legend" id="trendLegend"></div>
+    <div class="trend-plot" id="trendPlot">
+      <svg id="trendSvg" tabindex="0" role="img" aria-label="Linjediagram över andel röster per uppdatering. Använd piltangenterna för att stega mellan uppdateringar."></svg>
+      <div class="tip" id="trendTip" hidden></div>
+      <div class="empty" id="trendEmpty" hidden>Grafen fylls på när Valmyndigheten publicerar nästa uppdatering.</div>
+    </div>
+    <details class="table-view">
+      <summary>Visa som tabell</summary>
+      <div class="table-scroll"><table id="trendTable"></table></div>
+    </details>
+  </section>
+
+  <footer>
+    <p>Inofficiell sida, inte kopplad till Valmyndigheten. Siffrorna hämtas direkt från <a href="https://resultat.val.se/val2026/RD?r=P" rel="noopener">resultat.val.se</a> och är preliminära tills Valmyndigheten fastställer resultatet.</p>
+    <p>Förändring jämfört med valet 2022 anges i procentenheter. Uppdateras varje minut. Inga cookies, ingen spårning. Öppen källkod: <a href="https://github.com/pgronberg/valvaka" rel="noopener">github.com/pgronberg/valvaka</a></p>
+  </footer>
+</main>
+
+<script>
+  const LEFT = ["S", "V", "MP", "C"];
+  const RIGHT = ["M", "SD", "KD", "L"];
+  // Left-to-right on the page: opposition, spacer, Tidö parties, spacer, others
+  const ORDER = ["V", "S", "MP", "C", null, "L", "KD", "M", "SD", null, "ÖVR"];
+  const MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"];
+  const REFRESH_MS = 60_000;
+  const HISTORY_KEY = "valvaka-history-v1";
+  const MODE_KEY = "valvaka-trend-mode";
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  const $ = (id) => document.getElementById(id);
+  const num = (x) => x.toLocaleString("sv-SE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const pct = (x) => `${num(x)} %`;
+  function signed(x) {
+    const r = Math.round(x * 10) / 10;
+    return `${r > 0 ? "+" : r < 0 ? "−" : "±"}${num(Math.abs(r))}`;
+  }
+  function delta(x) {
+    if (x == null || Number.isNaN(x)) return "&nbsp;";
+    const r = Math.round(x * 10) / 10;
+    return `<span class="${r > 0 ? "up" : r < 0 ? "down" : ""}">${signed(x)}</span>`;
+  }
+  const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || "") ? c : "var(--other)");
+
+  // ---------- Current result ----------
+
+  const cols = {};
+  const partyColors = {};
+  function buildColumns() {
+    for (const code of ORDER) {
+      const col = document.createElement("div");
+      const name = document.createElement("div");
+      if (code) {
+        col.className = "col";
+        col.innerHTML = `<div class="val"></div><div class="bar"></div>`;
+        name.innerHTML = `<b>${code === "ÖVR" ? "Övr" : code}</b><span>&nbsp;</span>`;
+        cols[code] = { val: col.querySelector(".val"), bar: col.querySelector(".bar"), delta: name.querySelector("span") };
+      }
+      $("chart").appendChild(col);
+      $("names").appendChild(name);
+    }
+  }
+
+  function blocShare(parties, codes, total, total22) {
+    const members = parties.filter((p) => codes.includes(p.partiforkortning));
+    const votes = members.reduce((s, p) => s + (p.antalRoster || 0), 0);
+    const votes22 = members.reduce((s, p) => s + (p.antalRosterForegaendeVal || 0), 0);
+    const share = total ? (votes / total) * 100 : 0;
+    const share22 = total22 ? (votes22 / total22) * 100 : null;
+    return { share, change: share22 == null ? null : share - share22 };
+  }
+
+  function render(d) {
+    const r = d.rosterPaverkaMandat;
+    const parties = r.partiroster;
+    const left = blocShare(parties, LEFT, r.antalRoster, r.antalRosterForegaendeVal);
+    const right = blocShare(parties, RIGHT, r.antalRoster, r.antalRosterForegaendeVal);
+
+    $("leftPct").textContent = pct(left.share);
+    $("rightPct").textContent = pct(right.share);
+    $("leftDelta").innerHTML = `${delta(left.change)} sedan 2022`;
+    $("rightDelta").innerHTML = `${delta(right.change)} sedan 2022`;
+    const gap = Math.abs(left.share - right.share);
+    for (const [side, lead] of [["left", left.share > right.share], ["right", right.share > left.share]]) {
+      $(`${side}Lead`).textContent = `Leder med ${num(gap)} pe`;
+      $(`${side}Lead`).style.visibility = lead && r.antalRoster ? "visible" : "hidden";
+    }
+    $("splitL").style.width = `${left.share}%`;
+    $("splitR").style.width = `${right.share}%`;
+
+    const max = Math.max(10, ...parties.map((p) => p.andelRoster || 0));
+    const scale = max * 1.18; // headroom for the value label above the tallest bar
+    for (const p of parties) {
+      partyColors[p.partiforkortning] = safeColor(p.fargkod);
+      const c = cols[p.partiforkortning];
+      if (!c) continue;
+      const h = ((p.andelRoster || 0) / scale) * 100;
+      c.bar.style.height = `${h}%`;
+      c.bar.style.background = partyColors[p.partiforkortning];
+      c.val.style.bottom = `calc(${h}% + 4px)`;
+      c.val.innerHTML = `<span>${num(p.andelRoster || 0)}<small> %</small></span>`;
+      c.delta.innerHTML = delta(p.forandringAndelRoster);
+    }
+    $("threshold").style.bottom = `${(4 / scale) * 100}%`;
+
+    const counted = d.antalValdistriktRaknade, all = d.antalValdistriktSomSkaRaknas;
+    $("progress").style.width = `${all ? (counted / all) * 100 : 0}%`;
+    const time = (d.senasteUppdateringstid || "").split(" ").pop();
+    $("status").textContent = `${counted.toLocaleString("sv-SE")} av ${all.toLocaleString("sv-SE")} valdistrikt räknade · senast ${time}`;
+    $("dot").classList.remove("stale");
+  }
+
+  // ---------- History (one point per val.se update) ----------
+
+  let updates = [];
+
+  // Same shape as server.py's snapshot(), for hosts without an api/history endpoint
+  function snapshotOf(d) {
+    const [day, month, year, clock] = (d.senasteUppdateringstid || "").split(" ");
+    const m = MONTHS.indexOf((month || "").toLowerCase());
+    const r = d.rosterPaverkaMandat;
+    if (m < 0 || !clock || !r) return null;
+    return {
+      t: `${year}-${String(m + 1).padStart(2, "0")}-${day.padStart(2, "0")}T${clock}`,
+      districts: d.antalValdistriktRaknade,
+      left: +blocShare(r.partiroster, LEFT, r.antalRoster).share.toFixed(2),
+      right: +blocShare(r.partiroster, RIGHT, r.antalRoster).share.toFixed(2),
+      parties: Object.fromEntries(r.partiroster.map((p) => [p.partiforkortning, p.andelRoster])),
+    };
+  }
+
+  function browserHistory(latest) {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch {}
+    const snap = snapshotOf(latest);
+    if (snap && saved.at(-1)?.t !== snap.t) {
+      saved.push(snap);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(saved)); } catch {}
+    }
+    return saved;
+  }
+
+  async function loadHistory(latest) {
+    try {
+      const res = await fetch("api/history", { cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      updates = await res.json();
+    } catch {
+      // Static hosts (Netlify/Vercel) have no history endpoint, so keep this browser's own record
+      updates = browserHistory(latest);
+    }
+  }
+
+  // ---------- Trend chart ----------
+
+  let trendMode = "blocs";
+  try { if (localStorage.getItem(MODE_KEY) === "parties") trendMode = "parties"; } catch {}
+  let hoverIndex = null;
+
+  function trendSeries() {
+    if (trendMode === "blocs") {
+      return [
+        { name: "Oppositionen", color: "var(--left)", get: (s) => s.left },
+        { name: "Tidöpartierna", color: "var(--right)", get: (s) => s.right },
+      ];
+    }
+    return ORDER.filter(Boolean).map((code) => ({
+      name: code === "ÖVR" ? "Övriga" : code,
+      color: partyColors[code] || "var(--other)",
+      get: (s) => s.parties?.[code],
+    }));
+  }
+
+  function svgEl(name, attrs, parent) {
+    const node = document.createElementNS(SVGNS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    parent.appendChild(node);
+    return node;
+  }
+
+  function niceTicks(min, max) {
+    const raw = (max - min || 1) / 5;
+    const mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((f) => f * mag).find((s) => s >= raw);
+    const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = lo; v <= hi + step / 2; v += step) ticks.push(+v.toFixed(4));
+    return { lo, hi, ticks };
+  }
+
+  const clockOf = (t) => t.slice(11, 19);
+
+  function renderLegend(series) {
+    $("trendLegend").replaceChildren(...series.map((se) => {
+      const item = document.createElement("span");
+      const key = document.createElement("i");
+      key.style.background = se.color;
+      item.append(key, document.createTextNode(se.name));
+      return item;
+    }));
+  }
+
+  function renderTable(series) {
+    const row = (cells, tag) => {
+      const tr = document.createElement("tr");
+      for (const text of cells) {
+        const cell = document.createElement(tag);
+        cell.textContent = text;
+        tr.appendChild(cell);
+      }
+      return tr;
+    };
+    const head = row(["Tid", "Distrikt", ...series.map((se) => se.name)], "th");
+    const body = [...updates].reverse().map((snap) => row([
+      clockOf(snap.t),
+      snap.districts.toLocaleString("sv-SE"),
+      ...series.map((se) => (se.get(snap) == null ? "–" : pct(se.get(snap)))),
+    ], "td"));
+    $("trendTable").replaceChildren(head, ...body);
+  }
+
+  function renderTrend() {
+    const svg = $("trendSvg");
+    const tip = $("trendTip");
+    const { width, height } = $("trendPlot").getBoundingClientRect();
+    const series = trendSeries();
+    svg.replaceChildren();
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    renderLegend(series);
+    renderTable(series);
+    $("trendEmpty").hidden = updates.length > 1;
+    if (!updates.length || !width) return;
+
+    const directLabels = trendMode === "blocs"; // two series: label the line ends; parties rely on legend + tooltip
+    const m = { top: 12, right: directLabels ? 62 : 16, bottom: 26, left: 46 };
+    const times = updates.map((s) => new Date(s.t).getTime());
+    const t0 = times[0];
+    const t1 = times.at(-1) > t0 ? times.at(-1) : t0 + 60_000;
+    const values = updates.flatMap((s) => series.map((se) => se.get(s))).filter((v) => v != null);
+    const pad = directLabels ? 2 : 1;
+    const { lo, hi, ticks } = niceTicks(Math.max(0, Math.min(...values) - pad), Math.min(100, Math.max(...values) + pad));
+    const x = (t) => m.left + ((t - t0) / (t1 - t0)) * (width - m.left - m.right);
+    const y = (v) => m.top + (1 - (v - lo) / (hi - lo)) * (height - m.top - m.bottom);
+
+    const grid = svgEl("g", { class: "grid" }, svg);
+    const axis = svgEl("g", { class: "axis" }, svg);
+    for (const v of ticks) {
+      svgEl("line", { x1: m.left, x2: width - m.right, y1: y(v), y2: y(v) }, grid);
+      svgEl("text", { x: m.left - 8, y: y(v), "text-anchor": "end", "dominant-baseline": "middle" }, axis)
+        .textContent = `${v.toLocaleString("sv-SE")} %`;
+    }
+    const maxXTicks = Math.max(2, Math.floor((width - m.left - m.right) / 80));
+    const stepMin = [1, 2, 5, 10, 15, 30, 60, 120, 240].find((s) => (t1 - t0) / 60_000 / s <= maxXTicks) ?? 480;
+    const stepMs = stepMin * 60_000;
+    for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) {
+      svgEl("text", { x: x(t), y: height - 6, "text-anchor": "middle" }, axis)
+        .textContent = new Date(t).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    const marks = svgEl("g", {}, svg);
+    const ends = [];
+    for (const se of series) {
+      const pts = updates.map((s, i) => [x(times[i]), se.get(s)]).filter(([, v]) => v != null);
+      if (!pts.length) continue;
+      const d = pts.map(([px, v], i) => `${i ? "L" : "M"}${px.toFixed(1)},${y(v).toFixed(1)}`).join("");
+      svgEl("path", { d, fill: "none", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", style: `stroke:${se.color}` }, marks);
+      const [ex, ev] = pts.at(-1);
+      svgEl("circle", { cx: ex, cy: y(ev), r: 4, "stroke-width": 2, style: `fill:${se.color};stroke:var(--card)` }, marks);
+      ends.push({ ex, ey: y(ev), ev });
+    }
+    // End labels only when they don't collide; otherwise the legend and tooltip carry the values
+    if (directLabels && ends.length === 2 && Math.abs(ends[0].ey - ends[1].ey) > 16) {
+      for (const { ex, ey, ev } of ends) {
+        svgEl("text", { x: ex + 10, y: ey, "dominant-baseline": "middle", class: "endlabel" }, marks).textContent = pct(ev);
+      }
+    }
+
+    const cross = svgEl("line", { class: "cross", y1: m.top, y2: height - m.bottom, visibility: "hidden" }, svg);
+    const hoverDots = svgEl("g", {}, svg);
+    const hit = svgEl("rect", { x: 0, y: 0, width, height, fill: "transparent" }, svg);
+
+    function show(i) {
+      hoverIndex = i;
+      const snap = updates[i];
+      const prev = updates[i - 1];
+      const px = x(times[i]);
+      cross.setAttribute("x1", px);
+      cross.setAttribute("x2", px);
+      cross.setAttribute("visibility", "visible");
+      const rows = series.map((se) => ({ se, v: se.get(snap) })).filter((r) => r.v != null).sort((a, b) => b.v - a.v);
+      hoverDots.replaceChildren();
+      for (const { se, v } of rows) {
+        svgEl("circle", { cx: px, cy: y(v), r: 4, "stroke-width": 2, style: `fill:${se.color};stroke:var(--card)` }, hoverDots);
+      }
+
+      const when = document.createElement("div");
+      when.className = "when";
+      when.textContent = `${clockOf(snap.t)} · ${snap.districts.toLocaleString("sv-SE")} distrikt räknade`;
+      tip.replaceChildren(when);
+      for (const { se, v } of rows) {
+        const row = document.createElement("div");
+        row.className = "row";
+        const key = document.createElement("i");
+        key.style.background = se.color;
+        const value = document.createElement("b");
+        value.textContent = pct(v);
+        const name = document.createElement("span");
+        name.textContent = se.name;
+        row.append(key, value, name);
+        const before = prev && se.get(prev);
+        if (before != null) {
+          const change = document.createElement("em");
+          change.textContent = signed(v - before);
+          row.append(change);
+        }
+        tip.appendChild(row);
+      }
+      tip.hidden = false;
+      const tw = tip.offsetWidth;
+      tip.style.left = `${px + 14 + tw > width ? Math.max(0, px - 14 - tw) : px + 14}px`;
+    }
+
+    function hide() {
+      hoverIndex = null;
+      cross.setAttribute("visibility", "hidden");
+      hoverDots.replaceChildren();
+      tip.hidden = true;
+    }
+
+    function nearest(clientX) {
+      const px = clientX - svg.getBoundingClientRect().left;
+      let best = 0;
+      times.forEach((t, i) => { if (Math.abs(x(t) - px) < Math.abs(x(times[best]) - px)) best = i; });
+      return best;
+    }
+
+    hit.addEventListener("pointermove", (e) => show(nearest(e.clientX)));
+    hit.addEventListener("pointerleave", hide);
+    svg.onblur = hide;
+    svg.onkeydown = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const start = hoverIndex ?? updates.length;
+      show(Math.min(updates.length - 1, Math.max(0, start + (e.key === "ArrowRight" ? 1 : -1))));
+    };
+    if (hoverIndex != null) show(Math.min(hoverIndex, updates.length - 1));
+  }
+
+  function setMode(mode) {
+    trendMode = mode;
+    try { localStorage.setItem(MODE_KEY, mode); } catch {}
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    hoverIndex = null;
+    renderTrend();
+  }
+  document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+
+  // ---------- Refresh loop ----------
+
+  async function refresh() {
+    try {
+      // Relative so the dashboard also works from a subfolder; the host proxies this to val.se
+      const res = await fetch("api/results", { cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      render(data);
+      await loadHistory(data);
+      renderTrend();
+    } catch {
+      $("dot").classList.add("stale");
+      $("status").innerHTML = `<span class="error">Kunde inte hämta resultat, försöker igen om en minut</span>`;
+    }
+  }
+
+  buildColumns();
+  setMode(trendMode);
+  new ResizeObserver(() => renderTrend()).observe($("trendPlot"));
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+  // Phones throttle timers in the background, so catch up as soon as the tab is shown again
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>
