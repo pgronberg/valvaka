@@ -1,9 +1,10 @@
-"""Per-district results for the map, from Valmyndigheten's official results zip.
+"""Per-district results for the map and the seat allocation, from Valmyndigheten's official results zip.
 
-The zip holds every voting district's votes for the whole country, so one download per update is
-enough. It is reduced to a small JSON file the browser can colour 6,312 districts from.
+The zip holds every voting district's votes and the seat-allocation inputs for the whole country,
+so one download per update is enough. It is reduced to two small JSON files for the browser.
 
 Standalone use (e.g. from cron on PHP hosting):  python3 districts.py data/districts.json
+That also writes seats.json next to districts.json.
 """
 import io
 import json
@@ -13,13 +14,19 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import mandates
+
 ZIP_URL = "https://resultat.val.se/resultatfiler/val2026/p/rd/Val_2026_preliminar_00_RD.zip"
 USER_AGENT = "valvaka-dashboard/1.0"
 PARTIES = ["S", "SD", "M", "C", "KD", "L", "MP", "V"]
 
 
+def read_json(archive, kind):
+    return json.loads(archive.read(next(n for n in archive.namelist() if kind in n and n.endswith(".json"))))
+
+
 def fetch(etag=None):
-    """Returns (etag, compact results), or (etag, None) when the zip is unchanged since `etag`."""
+    """Returns (etag, districts, seats), or (etag, None, None) when the zip is unchanged since `etag`."""
     headers = {"User-Agent": USER_AGENT}
     if etag:
         headers["If-None-Match"] = etag
@@ -29,12 +36,12 @@ def fetch(etag=None):
             new_etag = resp.headers.get("ETag")
     except urllib.error.HTTPError as e:
         if e.code == 304:
-            return etag, None
+            return etag, None, None
         raise
-    with zipfile.ZipFile(io.BytesIO(body)) as z:
-        name = next(n for n in z.namelist() if "rostfordelning" in n and n.endswith(".json"))
-        data = json.loads(z.read(name))
-    return new_etag, compact(data)
+    with zipfile.ZipFile(io.BytesIO(body)) as archive:
+        districts = compact(read_json(archive, "rostfordelning"))
+        seats = mandates.summary(read_json(archive, "mandatfordelning"))
+    return new_etag, districts, seats
 
 
 def compact(data):
@@ -65,17 +72,24 @@ def compact(data):
     }
 
 
+def write_json(path, data):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, separators=(",", ":")))
+    tmp.replace(path)
+
+
 def main(out_path):
     out = Path(out_path)
+    seats_out = out.with_name("seats.json")
     etag_file = out.with_suffix(".etag")
-    etag = etag_file.read_text().strip() if etag_file.exists() and out.exists() else None
-    etag, result = fetch(etag)
-    if result is None:
+    # Without both outputs on disk, download even if the zip is unchanged (e.g. right after an upgrade)
+    etag = etag_file.read_text().strip() if etag_file.exists() and out.exists() and seats_out.exists() else None
+    etag, districts, seats = fetch(etag)
+    if districts is None:
         return
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_suffix(".tmp")
-    tmp.write_text(json.dumps(result, separators=(",", ":")))
-    tmp.replace(out)
+    write_json(out, districts)
+    write_json(seats_out, seats)
     if etag:
         etag_file.write_text(etag)
 

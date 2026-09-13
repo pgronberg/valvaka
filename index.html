@@ -42,7 +42,7 @@
   .up { color: var(--up); } .down { color: var(--down); }
   .lead { display: inline-block; white-space: nowrap; margin-top: 10px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--track); visibility: hidden; }
 
-  .split { position: relative; display: flex; height: 14px; border-radius: 7px; background: var(--track); margin: 16px 0 6px; }
+  .split { position: relative; display: flex; gap: 2px; height: 14px; border-radius: 7px; background: var(--track); margin: 16px 0 6px; }
   .split > div { transition: width .6s; }
   .split .l { background: var(--left); border-radius: 7px 0 0 7px; }
   .split .gap { flex: 1; }
@@ -65,6 +65,11 @@
   .names { border-top: 1px solid var(--line); padding-top: 8px; text-align: center; }
   .names b { display: block; font-size: 14px; }
   .names span { font-size: 12px; color: var(--muted); }
+  .names .seat { display: block; min-height: 1.5em; color: var(--ink); font-weight: 600; }
+  .names .seat:not(:empty)::after { content: " mandat"; font-weight: 400; color: var(--muted); }
+  .bloc-seats { font-size: 14px; color: var(--muted); margin-top: 4px; min-height: 1.4em; }
+  .bloc-seats b { color: var(--ink); font-size: 18px; font-weight: 650; }
+  .seat-note { font-size: 11px; color: var(--muted); text-align: center; margin-top: 2px; }
   .groups { margin-top: 10px; font-size: 12px; font-weight: 600; text-align: center; }
   .groups div { padding-top: 5px; border-top: 3px solid; }
   .groups .gl { grid-column: 1 / 5; border-color: var(--left); color: var(--left); }
@@ -143,6 +148,8 @@
     .val small { display: none; }
     .names b { font-size: 12px; }
     .names span { font-size: 10px; }
+    .names .seat:not(:empty)::after { content: " m"; }
+    .splitlabels .name { display: none; }
     .trend-plot { height: 220px; }
     .map-layout { grid-template-columns: 1fr; }
     .map-wrap { height: 560px; }
@@ -164,6 +171,7 @@
       <div class="members">S · V · MP · C</div>
       <div class="big" id="leftPct">–</div>
       <div class="delta" id="leftDelta">&nbsp;</div>
+      <div class="bloc-seats" id="leftSeats"></div>
       <div class="lead" id="leftLead">Leder</div>
     </div>
     <div class="card bloc right">
@@ -171,15 +179,21 @@
       <div class="members">M · SD · KD · L</div>
       <div class="big" id="rightPct">–</div>
       <div class="delta" id="rightDelta">&nbsp;</div>
+      <div class="bloc-seats" id="rightSeats"></div>
       <div class="lead" id="rightLead">Leder</div>
     </div>
   </section>
 
   <div class="split" aria-hidden="true">
     <div class="l" id="splitL"></div><div class="gap"></div><div class="r" id="splitR"></div>
-    <div class="mid"></div>
+    <div class="mid" id="splitMarker"></div>
   </div>
-  <div class="splitlabels"><span>Oppositionen</span><span>50 %</span><span>Tidöpartierna</span></div>
+  <div class="splitlabels">
+    <span><span class="name">Oppositionen</span><span id="splitLeftCount"></span></span>
+    <span id="splitMidLabel">50 %</span>
+    <span><span id="splitRightCount"></span><span class="name">Tidöpartierna</span></span>
+  </div>
+  <div class="seat-note" id="seatNote" hidden>Mandaten är beräknade utifrån de räknade rösterna och inte officiella</div>
 
   <section class="card parties">
     <div class="chart-legend"><i></i>4 %-spärren</div>
@@ -248,7 +262,7 @@
 
   <footer>
     <p>Inofficiell sida, inte kopplad till Valmyndigheten. Siffrorna hämtas direkt från <a href="https://resultat.val.se/val2026/RD?r=P" rel="noopener">resultat.val.se</a> och är preliminära tills Valmyndigheten fastställer resultatet. Distriktsgränser: Valmyndigheten och länsstyrelserna.</p>
-    <p>Förändring jämfört med valet 2022 anges i procentenheter. Uppdateras varje minut. Inga cookies, ingen spårning. Öppen källkod: <a href="https://github.com/pgronberg/valvaka" rel="noopener">github.com/pgronberg/valvaka</a></p>
+    <p>Förändring jämfört med valet 2022 anges i procentenheter. Mandaten är beräknade av Valvaka enligt vallagen utifrån de preliminära rösterna, eftersom Valmyndigheten inte publicerar någon mandatfördelning under valnatten. Den officiella fördelningen fastställs av Valmyndigheten. Uppdateras varje minut. Inga cookies, ingen spårning. Öppen källkod: <a href="https://github.com/pgronberg/valvaka" rel="noopener">github.com/pgronberg/valvaka</a></p>
   </footer>
 </main>
 
@@ -305,8 +319,13 @@
       if (code) {
         col.className = "col";
         col.innerHTML = `<div class="val"></div><div class="bar"></div>`;
-        name.innerHTML = `<b>${code === "ÖVR" ? "Övr" : code}</b><span>&nbsp;</span>`;
-        cols[code] = { val: col.querySelector(".val"), bar: col.querySelector(".bar"), delta: name.querySelector("span") };
+        name.innerHTML = `<b>${code === "ÖVR" ? "Övr" : code}</b><span class="seat"></span><span>&nbsp;</span>`;
+        cols[code] = {
+          val: col.querySelector(".val"),
+          bar: col.querySelector(".bar"),
+          seat: name.querySelector(".seat"),
+          delta: name.querySelector("span:last-child"),
+        };
       }
       $("chart").appendChild(col);
       $("names").appendChild(name);
@@ -337,8 +356,8 @@
       $(`${side}Lead`).textContent = `Leder med ${num(gap)} pe`;
       $(`${side}Lead`).style.visibility = lead && r.antalRoster ? "visible" : "hidden";
     }
-    $("splitL").style.width = `${left.share}%`;
-    $("splitR").style.width = `${right.share}%`;
+    blocShares = { left: left.share, right: right.share };
+    renderSplit();
 
     const max = Math.max(10, ...parties.map((p) => p.andelRoster || 0));
     const scale = max * 1.18; // headroom for the value label above the tallest bar
@@ -360,6 +379,72 @@
     const time = (d.senasteUppdateringstid || "").split(" ").pop();
     $("status").textContent = `${counted.toLocaleString("sv-SE")} av ${all.toLocaleString("sv-SE")} valdistrikt räknade · senast ${time}`;
     $("dot").classList.remove("stale");
+  }
+
+  // ---------- Seats ----------
+
+  let seatData = null;
+  let blocShares = null; // latest vote shares, which the bloc bar shows until seats are available
+  const signedInt = (n) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}`;
+
+  function seatsReady() {
+    return Boolean(seatData?.parties && Object.values(seatData.parties).some((p) => p.seats > 0));
+  }
+
+  const blocSeats = (codes, key) => codes.reduce((sum, code) => sum + (seatData.parties[code]?.[key] || 0), 0);
+
+  function renderSeats() {
+    const ready = seatsReady();
+    for (const [code, c] of Object.entries(cols)) {
+      const party = ready ? seatData.parties[code] : null;
+      c.seat.textContent = party ? party.seats : "";
+    }
+    for (const [side, codes] of [["left", LEFT], ["right", RIGHT]]) {
+      const el = $(`${side}Seats`);
+      if (!ready) {
+        el.replaceChildren();
+        continue;
+      }
+      const seats = blocSeats(codes, "seats");
+      const count = document.createElement("b");
+      count.textContent = seats;
+      el.replaceChildren(count, document.createTextNode(" mandat"));
+      const before = blocSeats(codes, "seats2022");
+      if (before) el.append(document.createTextNode(` · ${signedInt(seats - before)} sedan 2022`));
+    }
+    renderSplit();
+  }
+
+  // The bloc bar shows seats out of 349 against the majority line once they exist, otherwise vote shares
+  function renderSplit() {
+    const ready = seatsReady();
+    $("seatNote").hidden = !ready;
+    if (ready) {
+      const { total, majority } = seatData;
+      const left = blocSeats(LEFT, "seats"), right = blocSeats(RIGHT, "seats");
+      $("splitL").style.width = `${(left / total) * 100}%`;
+      $("splitR").style.width = `${(right / total) * 100}%`;
+      $("splitMarker").style.left = `${(majority / total) * 100}%`;
+      $("splitLeftCount").textContent = ` ${left} mandat`;
+      $("splitRightCount").textContent = `${right} mandat `;
+      $("splitMidLabel").textContent = `${majority} för majoritet`;
+    } else if (blocShares) {
+      $("splitL").style.width = `${blocShares.left}%`;
+      $("splitR").style.width = `${blocShares.right}%`;
+      $("splitMarker").style.left = "50%";
+      $("splitLeftCount").textContent = "";
+      $("splitRightCount").textContent = "";
+      $("splitMidLabel").textContent = "50 %";
+    }
+  }
+
+  async function refreshSeats() {
+    try {
+      seatData = await getJson(["api/seats", "api.php?seats=1"]);
+    } catch {
+      // Keep the last allocation through a blip; hosts without the endpoint keep showing vote shares
+    }
+    renderSeats();
   }
 
   // ---------- History (one point per val.se update) ----------
@@ -1035,6 +1120,7 @@
       // Relative so the dashboard also works from a subfolder; the host proxies this to val.se
       const data = await getJson(["api/results", "api.php"]);
       render(data);
+      refreshSeats();
       await loadHistory(data);
       renderTrend();
       if (map.features) refreshDistricts();

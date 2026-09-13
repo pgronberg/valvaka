@@ -32,6 +32,7 @@ _lock = threading.Lock()
 _ready = threading.Event()
 _latest = None  # raw bytes of the most recent good fetch
 _districts = None  # compact per-district JSON bytes for the map
+_seats = None  # computed seat allocation JSON bytes
 _history = []
 
 
@@ -86,15 +87,15 @@ def poll_forever():
 
 
 def poll_districts_forever():
-    global _districts
+    global _districts, _seats
     etag = None
     while True:
         try:
-            etag, result = districts.fetch(etag)
+            etag, result, seats = districts.fetch(etag)
             if result is not None:
-                body = json.dumps(result, separators=(",", ":")).encode()
                 with _lock:
-                    _districts = body
+                    _districts = json.dumps(result, separators=(",", ":")).encode()
+                    _seats = json.dumps(seats, separators=(",", ":")).encode()
         except Exception as e:
             print(f"district poll failed: {e}", flush=True)
         time.sleep(DISTRICTS_SECONDS)
@@ -119,6 +120,12 @@ class Handler(SimpleHTTPRequestHandler):
                 body = _districts
             if body is None:
                 return self.reply(503, b'{"error":"district results not loaded yet"}')
+            return self.reply(200, body)
+        if path == "/api/seats":
+            with _lock:
+                body = _seats
+            if body is None:
+                return self.reply(503, b'{"error":"seat allocation not loaded yet"}')
             return self.reply(200, body)
         return super().do_GET()
 

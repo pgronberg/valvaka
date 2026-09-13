@@ -103,17 +103,20 @@ $dir = data_dir();
 $cacheFile = "$dir/valvaka_latest.json";
 $historyFile = "$dir/valvaka_history.json";
 
-if (isset($_GET['districts'])) {
-    // Written every minute by cron: python3 districts.py data/districts.json
-    $districtsFile = __DIR__ . '/data/districts.json';
+foreach (['districts', 'seats'] as $generated) {
+    if (!isset($_GET[$generated])) {
+        continue;
+    }
+    // Both written every minute by cron: python3 districts.py data/districts.json
+    $generatedFile = __DIR__ . "/data/$generated.json";
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
-    if (!is_file($districtsFile)) {
+    if (!is_file($generatedFile)) {
         http_response_code(503);
-        echo '{"error":"district results not generated yet"}';
+        echo "{\"error\":\"$generated not generated yet\"}";
         exit;
     }
-    readfile($districtsFile);
+    readfile($generatedFile);
     exit;
 }
 

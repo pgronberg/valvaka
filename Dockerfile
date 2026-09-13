@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 WORKDIR /app
 # Only the page and the proxy; the other files are configs for Netlify/Vercel/PHP hosting
-COPY index.html server.py districts.py valdistrikt.topo.json ./
+COPY index.html server.py districts.py mandates.py valdistrikt.topo.json ./
 ENV HOST=0.0.0.0 PORT=8080 HISTORY_FILE=/data/history.json
 # The evening's update history lives here; mount a volume on /data to keep it across restarts
 RUN mkdir /data && chown nobody /data
