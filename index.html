@@ -9,11 +9,13 @@
   :root {
     --bg: #f6f5f2; --card: #fff; --ink: #16181d; --muted: #6b6f76; --line: #e4e2dc; --track: #ecebe6;
     --left: #d4343a; --right: #2f6db5; --up: #1f8a4c; --down: #c0392b; --other: #a3a3a3; --land: #dcdad2;
+    --sd: #e2b700;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111317; --card: #1a1d22; --ink: #eceae4; --muted: #9a9ea6; --line: #2a2e35; --track: #262a31;
       --left: #ec5a5f; --right: #5b94d8; --up: #4cc07f; --down: #ef6b5e; --other: #6f737a; --land: #2b3038;
+      --sd: #f5d31c;
     }
   }
   * { box-sizing: border-box; }
@@ -290,6 +292,9 @@
     return `<span class="${r > 0 ? "up" : r < 0 ? "down" : ""}">${signed(x)}</span>`;
   }
   const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || "") ? c : "var(--other)");
+  // Valmyndigheten colours SD blue-grey; readers know SD by its yellow, which also sets it apart from M, KD and L
+  const PARTY_COLOR_OVERRIDES = { SD: "var(--sd)" };
+  const partyColor = (code, fargkod) => PARTY_COLOR_OVERRIDES[code] || safeColor(fargkod);
 
   // Tries each path until one returns JSON, then remembers it. Hosts without URL rewriting
   // (e.g. nginx + PHP) can't serve api/results, but can still reach api.php directly.
@@ -362,7 +367,7 @@
     const max = Math.max(10, ...parties.map((p) => p.andelRoster || 0));
     const scale = max * 1.18; // headroom for the value label above the tallest bar
     for (const p of parties) {
-      partyColors[p.partiforkortning] = safeColor(p.fargkod);
+      partyColors[p.partiforkortning] = partyColor(p.partiforkortning, p.fargkod);
       const c = cols[p.partiforkortning];
       if (!c) continue;
       const h = ((p.andelRoster || 0) / scale) * 100;
@@ -795,7 +800,7 @@
         : { key: "right", label: "Tidöpartierna", color: "var(--right)" };
     }
     const [party] = largest(shares);
-    const color = safeColor(map.results.colors?.[party]);
+    const color = partyColor(party, map.results.colors?.[party]);
     return { key: party, label: party, color: color === "var(--other)" ? partyColors[party] || color : color };
   }
 
@@ -892,7 +897,7 @@
         const line = document.createElement("div");
         line.className = "row";
         const key = document.createElement("i");
-        const color = safeColor(map.results.colors?.[party]);
+        const color = partyColor(party, map.results.colors?.[party]);
         key.style.background = color === "var(--other)" ? partyColors[party] || color : color;
         const value = document.createElement("b");
         value.textContent = pct(share);
