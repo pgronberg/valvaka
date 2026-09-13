@@ -191,29 +191,6 @@
     <div class="cols groups"><div class="gl">Oppositionen</div><div class="gr">Tidöpartierna</div></div>
   </section>
 
-  <section class="card trend">
-    <div class="trend-head">
-      <div>
-        <h3>Utveckling under kvällen</h3>
-        <div class="sub">Andel av rösterna vid varje uppdatering från Valmyndigheten</div>
-      </div>
-      <div class="seg" role="group" aria-label="Visa i grafen" id="trendSeg">
-        <button type="button" data-mode="blocs" aria-pressed="true">Block</button>
-        <button type="button" data-mode="parties" aria-pressed="false">Partier</button>
-      </div>
-    </div>
-    <div class="legend" id="trendLegend"></div>
-    <div class="trend-plot" id="trendPlot">
-      <svg id="trendSvg" tabindex="0" role="img" aria-label="Linjediagram över andel röster per uppdatering. Använd piltangenterna för att stega mellan uppdateringar."></svg>
-      <div class="tip" id="trendTip" hidden></div>
-      <div class="empty" id="trendEmpty" hidden>Grafen fylls på när Valmyndigheten publicerar nästa uppdatering.</div>
-    </div>
-    <details class="table-view">
-      <summary>Visa som tabell</summary>
-      <div class="table-scroll"><table id="trendTable"></table></div>
-    </details>
-  </section>
-
   <section class="card map-card">
     <div class="trend-head">
       <div>
@@ -244,6 +221,29 @@
         <ol class="latest" id="mapLatest"></ol>
       </aside>
     </div>
+  </section>
+
+  <section class="card trend">
+    <div class="trend-head">
+      <div>
+        <h3>Utveckling under kvällen</h3>
+        <div class="sub">Andel av rösterna vid varje uppdatering från Valmyndigheten</div>
+      </div>
+      <div class="seg" role="group" aria-label="Visa i grafen" id="trendSeg">
+        <button type="button" data-mode="blocs" aria-pressed="true">Block</button>
+        <button type="button" data-mode="parties" aria-pressed="false">Partier</button>
+      </div>
+    </div>
+    <div class="legend" id="trendLegend"></div>
+    <div class="trend-plot" id="trendPlot">
+      <svg id="trendSvg" tabindex="0" role="img" aria-label="Linjediagram över andel röster per uppdatering. Använd piltangenterna för att stega mellan uppdateringar."></svg>
+      <div class="tip" id="trendTip" hidden></div>
+      <div class="empty" id="trendEmpty" hidden>Grafen fylls på när Valmyndigheten publicerar nästa uppdatering.</div>
+    </div>
+    <details class="table-view">
+      <summary>Visa som tabell</summary>
+      <div class="table-scroll"><table id="trendTable"></table></div>
+    </details>
   </section>
 
   <footer>
