@@ -103,6 +103,20 @@ $dir = data_dir();
 $cacheFile = "$dir/valvaka_latest.json";
 $historyFile = "$dir/valvaka_history.json";
 
+if (isset($_GET['districts'])) {
+    // Written every minute by cron: python3 districts.py data/districts.json
+    $districtsFile = __DIR__ . '/data/districts.json';
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    if (!is_file($districtsFile)) {
+        http_response_code(503);
+        echo '{"error":"district results not generated yet"}';
+        exit;
+    }
+    readfile($districtsFile);
+    exit;
+}
+
 if (!is_file($cacheFile) || time() - filemtime($cacheFile) >= CACHE_SECONDS) {
     $body = fetch_upstream();
     $data = $body === false ? null : json_decode($body, true);

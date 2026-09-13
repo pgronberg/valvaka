@@ -1,6 +1,9 @@
 # Runtime state written by server.py and api.php
 history.json
 history.tmp
+districts.json
+districts.tmp
+districts.etag
 data/
 __pycache__/
 .DS_Store

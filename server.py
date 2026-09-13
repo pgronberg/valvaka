@@ -1,7 +1,8 @@
 """Dashboard + proxy for Valmyndigheten's live Riksdag results (val.se sends no CORS headers).
 
-A background poller keeps the latest results and records a snapshot every time val.se publishes
-an update, so /api/history holds the whole evening no matter when a visitor opens the page.
+Background pollers keep the latest national results, record a snapshot every time val.se
+publishes an update (so /api/history holds the whole evening no matter when a visitor arrives),
+and keep per-district results for the map.
 """
 import json
 import os
@@ -13,12 +14,15 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import districts
+
 ROOT = Path(__file__).parent
 HOST = os.environ.get("HOST", "127.0.0.1")  # set HOST=0.0.0.0 inside a container
 PORT = int(os.environ.get("PORT", "8765"))
 HISTORY_FILE = Path(os.environ.get("HISTORY_FILE", ROOT / "history.json"))
 UPSTREAM = "https://resultat.val.se/data/resultat/val2026/RD_P.json"
 POLL_SECONDS = 30  # the CDN caches for ~60s, so polling harder gains nothing
+DISTRICTS_SECONDS = 60
 LEFT = ("S", "V", "MP", "C")
 RIGHT = ("M", "SD", "KD", "L")
 MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli",
@@ -27,6 +31,7 @@ MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli",
 _lock = threading.Lock()
 _ready = threading.Event()
 _latest = None  # raw bytes of the most recent good fetch
+_districts = None  # compact per-district JSON bytes for the map
 _history = []
 
 
@@ -80,6 +85,21 @@ def poll_forever():
         time.sleep(POLL_SECONDS)
 
 
+def poll_districts_forever():
+    global _districts
+    etag = None
+    while True:
+        try:
+            etag, result = districts.fetch(etag)
+            if result is not None:
+                body = json.dumps(result, separators=(",", ":")).encode()
+                with _lock:
+                    _districts = body
+        except Exception as e:
+            print(f"district poll failed: {e}", flush=True)
+        time.sleep(DISTRICTS_SECONDS)
+
+
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -93,6 +113,12 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/history":
             with _lock:
                 body = json.dumps(_history).encode()
+            return self.reply(200, body)
+        if path == "/api/districts":
+            with _lock:
+                body = _districts
+            if body is None:
+                return self.reply(503, b'{"error":"district results not loaded yet"}')
             return self.reply(200, body)
         return super().do_GET()
 
@@ -109,6 +135,7 @@ if __name__ == "__main__":
     if HISTORY_FILE.exists():
         _history = json.loads(HISTORY_FILE.read_text())
     threading.Thread(target=poll_forever, daemon=True).start()
+    threading.Thread(target=poll_districts_forever, daemon=True).start()
     handler = partial(Handler, directory=str(ROOT))
     print(f"Valvaka dashboard: http://{HOST}:{PORT} (history: {HISTORY_FILE})", flush=True)
     ThreadingHTTPServer((HOST, PORT), handler).serve_forever()

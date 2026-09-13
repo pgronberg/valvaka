@@ -18,6 +18,7 @@ En enkel live-dashboard för valnatten: hur stora **Tidöpartierna** (M, SD, KD,
 - **Partierna:** Varje partis andel som stapel, förändring sedan 2022 och 4 %-spärren.
 - **Utvecklingen:** En linjegraf med en punkt per uppdatering från Valmyndigheten, för blocken eller alla partier. Hovra eller använd piltangenterna för att se värden och förändringen sedan föregående uppdatering. Allt finns även som tabell.
 - **Räkningsläget:** Hur många av valdistrikten som är räknade och när Valmyndigheten senast uppdaterade.
+- **Kartan:** Alla 6 312 valdistrikt, färgade efter största parti eller största block när de är räknade. Hovra eller tryck på ett distrikt för dess resultat, zooma in i städerna och se de senast rapporterade distrikten.
 
 ## Förtroende och transparens
 
@@ -26,6 +27,7 @@ En enkel live-dashboard för valnatten: hur stora **Tidöpartierna** (M, SD, KD,
 - **Öppna beräkningar.** Partiernas andelar är Valmyndighetens egna siffror (`andelRoster`). Blockens andel är summan av blockets partiers röster delat med antalet röster som påverkar mandatfördelningen (`rosterPaverkaMandat.antalRoster`). Koden finns i [`index.html`](index.html) och [`server.py`](server.py).
 - **Preliminärt.** Valnattens siffror är den preliminära rösträkningen. Den slutliga räkningen kan ge andra siffror.
 - **Ingen spårning.** Inga cookies, ingen analys och inga tredjepartsresurser. Webbläsaren pratar bara med servern som levererar sidan. `localStorage` används bara för att komma ihåg grafvalet, och på statiska värdar även för historiken.
+- **Kartdata.** Distriktsgränserna kommer från Valmyndighetens [öppna data](https://www.val.se/valresultat-och-statistik/statistik-och-data/radata-val-2026) (länsstyrelsernas valdistrikt i SWEREF 99 TM), förenklade med [mapshaper](https://github.com/mbloch/mapshaper) till `valdistrikt.topo.json`. Resultaten per distrikt kommer från Valmyndighetens officiella resultatfil `Val_2026_preliminar_00_RD.zip`. De 314 uppsamlingsdistrikten saknar geografi och syns inte på kartan.
 - **Inga beroenden.** Servern använder bara Pythons standardbibliotek och sidan är ren HTML, CSS och JavaScript, så det finns ingen leveranskedja att lita på.
 
 ## Kom igång
@@ -50,9 +52,9 @@ Valmyndighetens filer skickar inga CORS-huvuden, så en webbläsare på en annan
 
 | Hosting | Filer | Historik |
 |---|---|---|
-| Container eller VPS med Python | `server.py`, `index.html` | På servern, gemensam för alla besökare |
+| Container eller VPS med Python | `server.py`, `districts.py`, `index.html`, `valdistrikt.topo.json` | På servern, gemensam för alla besökare |
 | Docker | `Dockerfile` | På servern. Montera en volym på `/data` för att behålla den vid omstart. |
-| PHP (Apache eller nginx) | `index.html`, `api.php`, `.htaccess` | På servern, men registreras bara när någon har sidan öppen. Utan URL-omskrivning, till exempel på nginx, anropar sidan `api.php` direkt. |
+| PHP (Apache eller nginx) | `index.html`, `api.php`, `.htaccess`, `districts.py`, `valdistrikt.topo.json` | På servern, men registreras bara när någon har sidan öppen. Utan URL-omskrivning, till exempel på nginx, anropar sidan `api.php` direkt. |
 | Netlify | `index.html`, `_redirects` | Bara i besökarens webbläsare |
 | Vercel | `index.html`, `vercel.json` | Bara i besökarens webbläsare |
 
@@ -61,12 +63,20 @@ docker build -t valvaka .
 docker run -p 8080:8080 -v valvaka-data:/data valvaka
 ```
 
+På PHP-hosting sköter cron det som `server.py` annars gör i bakgrunden: historiken och resultaten per distrikt till kartan. `districts.py` kräver Python 3.10 eller senare på servern.
+
+```bash
+* * * * * cd ~/public && php api.php >/dev/null 2>&1
+* * * * * cd ~/public && python3 districts.py data/districts.json >/dev/null 2>&1
+```
+
 ## API
 
 | Endpoint | Svar |
 |---|---|
 | `GET /api/results` | Valmyndighetens `RD_P.json` oförändrad, cachad i 30 sekunder |
 | `GET /api/history` | `[{ t, districts, left, right, parties: { S: 24.0, … } }, …]`, en post per uppdatering |
+| `GET /api/districts` | `{ updated, parties, colors, districts: { "08600201": [rapporterat, giltiga röster, …andelar i partiordning, övriga] } }`, bara räknade distrikt |
 
 Källdatan följer mönstret `https://resultat.val.se/data/resultat/val2026/{val}_{område}_{P|S}.json`, till exempel `RD_P.json` (riksdagen, hela landet, preliminärt) eller `KF_10_1082_P.json` (kommunvalet i Karlshamn). Alla områdeskoder finns i `https://resultat.val.se/data/valgeografi/valgeografi_val2026.json`. Formatet är Valmyndighetens interna och odokumenterade format och kan ändras utan förvarning.
 
@@ -74,4 +84,4 @@ Servern hämtar som mest en gång var 30:e sekund oavsett antal besökare, för 
 
 ## Licens
 
-Koden är licensierad under [MIT](LICENSE). Licensen gäller koden i det här repot. Valresultaten publiceras av Valmyndigheten.
+Koden är licensierad under [MIT](LICENSE). Licensen gäller koden i det här repot. Valresultat och distriktsgränser kommer från Valmyndigheten, som ska anges som källa. Gränserna tas fram av länsstyrelserna.
