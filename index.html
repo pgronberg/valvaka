@@ -33,6 +33,20 @@
   .progress { height: 4px; background: var(--track); border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
   .progress > div { height: 100%; width: 0; background: var(--ink); opacity: .5; transition: width .6s; }
 
+  .status-card { margin-bottom: 16px; }
+  .status-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; }
+  .status-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
+  .status-card .sub { font-size: 12px; color: var(--muted); }
+  .steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .steps li { display: flex; gap: 10px; align-items: flex-start; }
+  .step-dot { flex: none; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; border: 2px solid var(--muted); }
+  .steps li[data-state="done"] .step-dot { background: var(--up); border-color: var(--up); }
+  .steps li[data-state="active"] .step-dot { border-color: var(--up); background: radial-gradient(var(--up) 0 3px, transparent 3.5px); }
+  .steps b { font-size: 14px; font-weight: 600; }
+  .step-state { margin-left: 6px; font-size: 12px; color: var(--muted); }
+  .steps li[data-state="active"] .step-state { color: var(--up); }
+  .vm-note { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
   .blocs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .bloc.right { text-align: right; }
@@ -153,6 +167,7 @@
     .names .seat:not(:empty)::after { content: " m"; }
     .splitlabels .name { display: none; }
     .trend-plot { height: 220px; }
+    .steps { grid-template-columns: 1fr; gap: 10px; }
     .map-layout { grid-template-columns: 1fr; }
     .map-wrap { height: 560px; }
     .latest { max-height: 320px; }
@@ -166,6 +181,28 @@
     <div class="status"><span class="dot" id="dot"></span><span id="status">Hämtar…</span></div>
   </header>
   <div class="progress"><div id="progress"></div></div>
+
+  <section class="card status-card" id="statusCard" hidden>
+    <div class="status-head">
+      <h3>Räkningsläge</h3>
+      <div class="sub" id="statusUpdated"></div>
+    </div>
+    <ol class="steps">
+      <li id="stepPolling" data-state="waiting">
+        <span class="step-dot"></span>
+        <div><b>Vallokalernas räkning</b><span class="step-state"></span><div class="sub"></div></div>
+      </li>
+      <li id="stepCollection" data-state="waiting">
+        <span class="step-dot"></span>
+        <div><b>Uppsamlingsdistrikt</b><span class="step-state"></span><div class="sub"></div></div>
+      </li>
+      <li id="stepFinal" data-state="waiting">
+        <span class="step-dot"></span>
+        <div><b>Slutlig rösträkning</b><span class="step-state"></span><div class="sub"></div></div>
+      </li>
+    </ol>
+    <p class="vm-note" id="statusMessage"></p>
+  </section>
 
   <section class="blocs">
     <div class="card bloc left">
@@ -379,11 +416,74 @@
     }
     $("threshold").style.bottom = `${(4 / scale) * 100}%`;
 
-    const counted = d.antalValdistriktRaknade, all = d.antalValdistriktSomSkaRaknas;
+    lastResults = d;
+    renderProgress(d);
+    $("dot").classList.remove("stale");
+  }
+
+  // ---------- Counting status ----------
+
+  let statusData = null;
+  let lastResults = null;
+  const int = (n) => n.toLocaleString("sv-SE");
+  const STATE_LABEL = { done: "Klar", active: "Pågår", waiting: "Väntar" };
+
+  function relativeTime(iso) {
+    const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (minutes < 1) return "nyss";
+    if (minutes < 60) return `för ${minutes} min sedan`;
+    const hours = Math.floor(minutes / 60);
+    return hours < 24 ? `för ${hours} tim sedan` : `för ${Math.floor(hours / 24)} dygn sedan`;
+  }
+
+  const stepState = (counted, total) => (total && counted >= total ? "done" : counted > 0 ? "active" : "waiting");
+
+  function setStep(id, state, text) {
+    const step = $(id);
+    step.dataset.state = state;
+    step.querySelector(".step-state").textContent = STATE_LABEL[state];
+    step.querySelector(".sub").textContent = text;
+  }
+
+  // Header counter: once the split is known, count polling-station districts only, since the
+  // 314 collection districts are counted days later and would otherwise leave the bar stuck short
+  function renderProgress(d) {
+    const regular = statusData?.regular;
+    const counted = regular ? regular.counted : d.antalValdistriktRaknade;
+    const all = regular ? regular.total : d.antalValdistriktSomSkaRaknas;
     $("progress").style.width = `${all ? (counted / all) * 100 : 0}%`;
     const time = (d.senasteUppdateringstid || "").split(" ").pop();
-    $("status").textContent = `${counted.toLocaleString("sv-SE")} av ${all.toLocaleString("sv-SE")} valdistrikt räknade · senast ${time}`;
-    $("dot").classList.remove("stale");
+    $("status").textContent = `${int(counted)} av ${int(all)} ${regular ? "vallokalsdistrikt" : "valdistrikt"} räknade · senast ${time}`;
+  }
+
+  function renderStatus() {
+    const s = statusData;
+    $("statusCard").hidden = !s;
+    if (!s) return;
+    $("statusUpdated").textContent = s.updated ? `Senaste uppdatering ${s.updated.slice(11, 16)}, ${relativeTime(s.updated)}` : "";
+
+    const { regular, collection } = s;
+    let polling = `${int(regular.counted)} av ${int(regular.total)} distrikt räknade`;
+    if (s.pending.length) {
+      const named = s.pending.slice(0, 3).map((p) => `${p.kommun} (${p.districts})`);
+      const rest = s.pending.length - named.length;
+      polling += `. Kvar: ${named.join(", ")}${rest > 0 ? ` och ${rest} ${rest === 1 ? "kommun" : "kommuner"} till` : ""}`;
+    }
+    setStep("stepPolling", stepState(regular.counted, regular.total), polling);
+    setStep("stepCollection", stepState(collection.counted, collection.total), `${int(collection.counted)} av ${int(collection.total)} räknade`);
+    setStep("stepFinal", s.final_published ? "active" : "waiting",
+      s.final_published ? "Valmyndigheten har börjat publicera resultat" : "Inga resultat publicerade än");
+    $("statusMessage").textContent = s.messages.length ? `Valmyndigheten: ${s.messages.join(" ")}` : "";
+    if (lastResults) renderProgress(lastResults);
+  }
+
+  async function refreshStatus() {
+    try {
+      statusData = await getJson(["api/status", "api.php?status=1"]);
+    } catch {
+      // Hosts without the endpoint simply don't show the status card
+    }
+    renderStatus();
   }
 
   // ---------- Seats ----------
@@ -1126,6 +1226,7 @@
       const data = await getJson(["api/results", "api.php"]);
       render(data);
       refreshSeats();
+      refreshStatus();
       await loadHistory(data);
       renderTrend();
       if (map.features) refreshDistricts();

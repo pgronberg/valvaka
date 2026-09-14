@@ -3,5 +3,6 @@ RewriteRule ^api/results$ api.php [L]
 RewriteRule ^api/history$ api.php?history=1 [L]
 RewriteRule ^api/districts$ api.php?districts=1 [L]
 RewriteRule ^api/seats$ api.php?seats=1 [L]
+RewriteRule ^api/status$ api.php?status=1 [L]
 # Cache and history files are served through the API, not directly
 RewriteRule ^data/ - [F]

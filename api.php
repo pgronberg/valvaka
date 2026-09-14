@@ -103,7 +103,7 @@ $dir = data_dir();
 $cacheFile = "$dir/valvaka_latest.json";
 $historyFile = "$dir/valvaka_history.json";
 
-foreach (['districts', 'seats'] as $generated) {
+foreach (['districts', 'seats', 'status'] as $generated) {
     if (!isset($_GET[$generated])) {
         continue;
     }

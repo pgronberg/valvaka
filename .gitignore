@@ -6,6 +6,8 @@ districts.tmp
 districts.etag
 seats.json
 seats.tmp
+status.json
+status.tmp
 data/
 __pycache__/
 .DS_Store

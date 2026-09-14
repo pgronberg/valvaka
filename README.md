@@ -17,7 +17,7 @@ En enkel live-dashboard för valnatten: hur stora **Tidöpartierna** (M, SD, KD,
 - **Blocken:** Oppositionens och Tidöpartiernas sammanlagda andel av rösterna, beräknade mandat mot gränsen för egen majoritet (175), förändring sedan 2022 och vem som leder.
 - **Partierna:** Varje partis andel som stapel, beräknat antal mandat, förändring sedan 2022 och 4 %-spärren.
 - **Utvecklingen:** En linjegraf med en punkt per uppdatering från Valmyndigheten, för blocken eller alla partier. Hovra eller använd piltangenterna för att se värden och förändringen sedan föregående uppdatering. Allt finns även som tabell.
-- **Räkningsläget:** Hur många av valdistrikten som är räknade och när Valmyndigheten senast uppdaterade.
+- **Räkningsläget:** Var räkningen står och vad som kommer härnäst, i tre steg: vallokalernas räkning (med vilka kommuner som saknas), uppsamlingsdistrikten och den slutliga rösträkningen. Under stegen visas Valmyndighetens eget meddelande om tidplanen, och när de senast uppdaterade.
 - **Kartan:** Alla 6 312 valdistrikt, färgade efter största parti eller största block när de är räknade. Hovra eller tryck på ett distrikt för dess resultat, zooma in i städerna och se de senast rapporterade distrikten.
 
 ## Förtroende och transparens
@@ -77,6 +77,7 @@ På PHP-hosting sköter cron det som `server.py` annars gör i bakgrunden: histo
 |---|---|
 | `GET /api/results` | Valmyndighetens `RD_P.json` oförändrad, cachad i 30 sekunder |
 | `GET /api/history` | `[{ t, districts, left, right, parties: { S: 24.0, … } }, …]`, en post per uppdatering |
+| `GET /api/status` | `{ updated, regular: { counted, total }, collection: { counted, total }, pending: [{ kommun, districts }], messages, final_published }`, räkningsläget |
 | `GET /api/seats` | `{ updated, counted, total, majority, parties: { S: { seats, fixed, seats2022 }, … } }`, beräknad mandatfördelning |
 | `GET /api/districts` | `{ updated, parties, colors, districts: { "08600201": [rapporterat, giltiga röster, …andelar i partiordning, övriga] } }`, bara räknade distrikt |
 

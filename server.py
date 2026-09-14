@@ -33,6 +33,7 @@ _ready = threading.Event()
 _latest = None  # raw bytes of the most recent good fetch
 _districts = None  # compact per-district JSON bytes for the map
 _seats = None  # computed seat allocation JSON bytes
+_status = None  # counting status JSON bytes
 _history = []
 
 
@@ -87,15 +88,22 @@ def poll_forever():
 
 
 def poll_districts_forever():
-    global _districts, _seats
+    global _districts, _seats, _status
     etag = None
+    counting = None
     while True:
         try:
-            etag, result, seats = districts.fetch(etag)
+            etag, result, seats, latest = districts.fetch(etag)
             if result is not None:
+                counting = latest
                 with _lock:
                     _districts = json.dumps(result, separators=(",", ":")).encode()
                     _seats = json.dumps(seats, separators=(",", ":")).encode()
+            if counting is not None:
+                # Refreshed every round so new messages or the start of the final count show up
+                body = json.dumps(districts.status(counting), separators=(",", ":")).encode()
+                with _lock:
+                    _status = body
         except Exception as e:
             print(f"district poll failed: {e}", flush=True)
         time.sleep(DISTRICTS_SECONDS)
@@ -126,6 +134,12 @@ class Handler(SimpleHTTPRequestHandler):
                 body = _seats
             if body is None:
                 return self.reply(503, b'{"error":"seat allocation not loaded yet"}')
+            return self.reply(200, body)
+        if path == "/api/status":
+            with _lock:
+                body = _status
+            if body is None:
+                return self.reply(503, b'{"error":"counting status not loaded yet"}')
             return self.reply(200, body)
         return super().do_GET()
 
